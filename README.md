@@ -1,5 +1,7 @@
 # Codex Observability for Grafana
 
+![OpenAI Codex overview dashboard](docs/codex-dashboard.png)
+
 Explore the OpenTelemetry metrics and traces emitted by Codex in a local Grafana stack. The dashboard is generated with the Grafana Foundation SDK for Go.
 
 ## What it shows
@@ -38,7 +40,7 @@ Requirements: Codex CLI or the Codex desktop app, Docker with Compose, and [mise
 
 The example sends Codex metrics and traces to the local LGTM container over OTLP/HTTP. Log export is disabled, and `log_user_prompt` is set to `false`. Telemetry can still include operation names and attributes, so this setup is intended for local inspection.
 
-The dashboard shows the latest cumulative metrics in the selected time range. Request counts include API and WebSocket metrics; model names come from Codex telemetry. Missing samples display as `0` or `No activity`.
+Every panel follows Grafana's time picker, which defaults to the last 24 hours. Request counts include API and WebSocket metrics; model names come from Codex telemetry. Missing samples display as `0` or `No activity`.
 
 ## Develop
 

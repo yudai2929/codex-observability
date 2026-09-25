@@ -145,3 +145,4 @@ func BuildCodexDashboard() (resource.Manifest, error) {
 	}
 	return definition.Build()
 }
+

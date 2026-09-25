@@ -1353,7 +1353,7 @@
     ],
     "timeSettings": {
       "timezone": "browser",
-      "from": "now-1h",
+      "from": "now-24h",
       "to": "now",
       "autoRefresh": "30s",
       "autoRefreshIntervals": [
@@ -1375,3 +1375,4 @@
     "variables": []
   }
 }
+

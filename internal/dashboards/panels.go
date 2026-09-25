@@ -23,7 +23,6 @@ type PanelDefinition struct {
 	Visualization   cog.Builder[dashboardv2.VizConfigKind]
 	Queries         []cog.Builder[dashboardv2.PanelQueryKind]
 	Transformations []cog.Builder[dashboardv2.TransformationKind]
-	TimeFrom        string
 }
 
 type Definition struct {
@@ -40,7 +39,7 @@ func (definition Definition) Build() (resource.Manifest, error) {
 		Description(definition.Description).
 		Tags(definition.Tags).
 		TimeSettings(dashboardv2.NewTimeSettingsBuilder().
-			Timezone("browser").From("now-1h").To("now").AutoRefresh("30s"))
+			Timezone("browser").From("now-24h").To("now").AutoRefresh("30s"))
 
 	for _, item := range definition.Panels {
 		key := fmt.Sprintf("panel-%d", item.ID)
@@ -50,9 +49,6 @@ func (definition Definition) Build() (resource.Manifest, error) {
 		}
 		for _, transformation := range item.Transformations {
 			queries.Transformation(transformation)
-		}
-		if item.TimeFrom != "" {
-			queries.QueryOptions(dashboardv2.NewQueryOptionsSpecBuilder().TimeFrom(item.TimeFrom))
 		}
 		builder.Panel(key, dashboardv2.NewPanelBuilder().
 			Id(float64(item.ID)).Title(item.Title).Description(item.Description).
