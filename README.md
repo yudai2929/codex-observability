@@ -1,13 +1,15 @@
 # Codex Observability for Grafana
 
+![OpenAI Codex overview dashboard](docs/codex-dashboard.png)
+
 Explore the OpenTelemetry metrics and traces emitted by Codex in a local Grafana stack. The dashboard is generated with the Grafana Foundation SDK for Go.
 
 ## What it shows
 
-- Request and token totals, conversations, and local activity
-- Request rate and latency by model
+- API and WebSocket requests, conversations, turns, and token totals
+- Request counts by model, token usage, and latency
 - Request breakdowns by model and originating client
-- Authentication mode, client type, and Codex version
+- Authentication mode, session source, and Codex version
 - Codex traces in Tempo
 
 The dashboard is inspired by Grafana's [OpenAI Codex overview](https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-infrastructure/integrations/integration-reference/integration-openai-codex/). Some hosted panels rely on team-member identities that local Codex telemetry does not provide; this dashboard uses the originating client as a local breakdown instead.
@@ -38,7 +40,7 @@ Requirements: Codex CLI or the Codex desktop app, Docker with Compose, and [mise
 
 The example sends Codex metrics and traces to the local LGTM container over OTLP/HTTP. Log export is disabled, and `log_user_prompt` is set to `false`. Telemetry can still include operation names and attributes, so this setup is intended for local inspection.
 
-Codex exports telemetry when activity occurs. Request rates and latency need consecutive metric reports; a short or idle session can therefore show **No data** for those time series. Totals and breakdowns use the last cumulative value observed in the selected time range, not the exact increase during that range. Traces appear only when Codex has emitted spans in the selected time range.
+Every panel follows Grafana's time picker, which defaults to the last 24 hours. Request counts include API and WebSocket metrics; model names come from Codex telemetry. Missing samples display as `0` or `No activity`.
 
 ## Develop
 
