@@ -47,6 +47,10 @@ func codexRequestTotal() string {
 	)
 }
 
+func codexRequestDuration(metricSuffix string) string {
+	return fmt.Sprintf(`{__name__=~"codex_(api|websocket)_request_duration_ms_milliseconds_%s"}`, metricSuffix)
+}
+
 func codexRequestBreakdown(label string) string {
 	return fmt.Sprintf(
 		`sum by (%[1]s) (%[2]s) or on() label_replace(vector(0), "%[1]s", "No activity", "", "")`,
@@ -96,7 +100,6 @@ func codexStat(id int, position Position, title, expr, unit, description string)
 }
 
 func BuildCodexDashboard() (resource.Manifest, error) {
-	const cumulativeDescription = "Latest cumulative Codex OTel snapshot found in the selected time range. Choose a shorter range to focus on recent activity."
 	const averageDescription = "Average from the latest cumulative histogram snapshots in the selected time range. Displays 0 until Codex reports a measurement."
 	definition := Definition{
 		UID:         "codex-otel-local",
@@ -119,8 +122,8 @@ func BuildCodexDashboard() (resource.Manifest, error) {
 			codexDonut(8, Position{12, 12, 12, 8}, "Requests by client", "API and WebSocket requests grouped by the Codex client that emitted the samples. This is a local-client breakdown, not a team-member breakdown.",
 				codexRequestBreakdown("originator"), "{{originator}}"),
 
-			codexStat(9, Position{0, 20, 6, 4}, "Avg request latency", codexAverage("codex_websocket_request_duration_ms_milliseconds_sum", "codex_websocket_request_duration_ms_milliseconds_count"), "ms", averageDescription),
-			codexStat(10, Position{6, 20, 6, 4}, "P95 request latency", `histogram_quantile(0.95, sum by (le) (last_over_time(codex_websocket_request_duration_ms_milliseconds_bucket[$__range]))) or vector(0)`, "ms", "95th percentile from the latest cumulative request-latency histogram snapshots in the selected time range."),
+			codexStat(9, Position{0, 20, 6, 4}, "Avg request latency", codexAverage(codexRequestDuration("sum"), codexRequestDuration("count")), "ms", averageDescription),
+			codexStat(10, Position{6, 20, 6, 4}, "P95 request latency", fmt.Sprintf(`histogram_quantile(0.95, sum by (le) (last_over_time(%s[$__range]))) or vector(0)`, codexRequestDuration("bucket")), "ms", "95th percentile from the latest cumulative API and WebSocket request-latency histogram snapshots in the selected time range."),
 			codexStat(11, Position{12, 20, 6, 4}, "Avg turn duration", codexAverage("codex_turn_e2e_duration_ms_milliseconds_sum", "codex_turn_e2e_duration_ms_milliseconds_count"), "ms", averageDescription),
 			codexStat(12, Position{18, 20, 6, 4}, "Tool calls", codexLatest("codex_tool_call_total"), "short", "Tool calls reported by Codex. Displays 0 when no tool-call sample has been reported."),
 
@@ -145,4 +148,3 @@ func BuildCodexDashboard() (resource.Manifest, error) {
 	}
 	return definition.Build()
 }
-

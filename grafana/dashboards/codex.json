@@ -81,7 +81,7 @@
         "spec": {
           "id": 10,
           "title": "P95 request latency",
-          "description": "95th percentile from the latest cumulative request-latency histogram snapshots in the selected time range.",
+          "description": "95th percentile from the latest cumulative API and WebSocket request-latency histogram snapshots in the selected time range.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -99,7 +99,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "histogram_quantile(0.95, sum by (le) (last_over_time(codex_websocket_request_duration_ms_milliseconds_bucket[$__range]))) or vector(0)",
+                        "expr": "histogram_quantile(0.95, sum by (le) (last_over_time({__name__=~\"codex_(api|websocket)_request_duration_ms_milliseconds_bucket\"}[$__range]))) or vector(0)",
                         "instant": true,
                         "range": false
                       }
@@ -1085,7 +1085,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "(sum(last_over_time(codex_websocket_request_duration_ms_milliseconds_sum[$__range])) / clamp_min(sum(last_over_time(codex_websocket_request_duration_ms_milliseconds_count[$__range])), 1)) or vector(0)",
+                        "expr": "(sum(last_over_time({__name__=~\"codex_(api|websocket)_request_duration_ms_milliseconds_sum\"}[$__range])) / clamp_min(sum(last_over_time({__name__=~\"codex_(api|websocket)_request_duration_ms_milliseconds_count\"}[$__range])), 1)) or vector(0)",
                         "instant": true,
                         "range": false
                       }
@@ -1375,4 +1375,3 @@
     "variables": []
   }
 }
-
