@@ -4,10 +4,10 @@ Explore the OpenTelemetry metrics and traces emitted by Codex in a local Grafana
 
 ## What it shows
 
-- Request and token totals, conversations, and local activity
-- Request rate and latency by model
+- API and WebSocket requests, conversations, turns, and token totals
+- Request counts by model, token usage, and latency
 - Request breakdowns by model and originating client
-- Authentication mode, client type, and Codex version
+- Authentication mode, session source, and Codex version
 - Codex traces in Tempo
 
 The dashboard is inspired by Grafana's [OpenAI Codex overview](https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-infrastructure/integrations/integration-reference/integration-openai-codex/). Some hosted panels rely on team-member identities that local Codex telemetry does not provide; this dashboard uses the originating client as a local breakdown instead.
@@ -38,7 +38,9 @@ Requirements: Codex CLI or the Codex desktop app, Docker with Compose, and [mise
 
 The example sends Codex metrics and traces to the local LGTM container over OTLP/HTTP. Log export is disabled, and `log_user_prompt` is set to `false`. Telemetry can still include operation names and attributes, so this setup is intended for local inspection.
 
-Codex exports telemetry when activity occurs. Request rates and latency need consecutive metric reports; a short or idle session can therefore show **No data** for those time series. Totals and breakdowns use the last cumulative value observed in the selected time range, not the exact increase during that range. Traces appear only when Codex has emitted spans in the selected time range.
+The dashboard opens on the most recent hour. It uses the metric names currently emitted by Codex. Counters are cumulative, so totals and breakdowns use the latest cumulative snapshot found in the selected time range; adjust the time picker to inspect a different period. Metric cards show `0` when no sample has arrived, and breakdowns show `No activity`. The request graph uses reported counters, so it also shows activity from short-lived CLI sessions that report only once. The trace table fills after Codex emits spans.
+
+The model label is read from each Codex client's telemetry, not inferred from the currently selected setting. The request panels include both API and WebSocket counters. A model appears after Codex reports a matching sample in the selected time range; historical `gpt-5.5` samples remain visible if that range includes them. Use a shorter range to focus on recent runs. For the Codex CLI, GPT-6 Sol requires client version 0.155.0 or later in the [Codex model catalog](https://github.com/openai/codex/blob/main/codex-rs/models-manager/models.json). Update an older client if it cannot run the model selected in your configuration.
 
 ## Develop
 

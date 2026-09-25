@@ -40,7 +40,7 @@ func (definition Definition) Build() (resource.Manifest, error) {
 		Description(definition.Description).
 		Tags(definition.Tags).
 		TimeSettings(dashboardv2.NewTimeSettingsBuilder().
-			Timezone("browser").From("now-24h").To("now").AutoRefresh("30s"))
+			Timezone("browser").From("now-1h").To("now").AutoRefresh("30s"))
 
 	for _, item := range definition.Panels {
 		key := fmt.Sprintf("panel-%d", item.ID)

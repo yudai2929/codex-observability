@@ -7,15 +7,15 @@
   "spec": {
     "annotations": [],
     "cursorSync": "Off",
-    "description": "A local view inspired by Grafana's OpenAI Codex Overview. Codex OTel metrics do not include team member identities, so the dashboard shows the originating client instead. Stat panels and breakdowns show the last cumulative value observed in the selected time range.",
+    "description": "Local Codex OpenTelemetry activity. Metric panels use the latest cumulative snapshots reported during the selected range; missing metric samples display as zero. Model and app version labels come from the Codex client that emitted each sample.",
     "editable": true,
     "elements": {
       "panel-1": {
         "kind": "Panel",
         "spec": {
           "id": 1,
-          "title": "Total requests",
-          "description": "Last cumulative value observed in the selected time range; this is not the increase during that range. Combined HTTP and WebSocket requests.",
+          "title": "API + WebSocket requests",
+          "description": "Sum of the latest cumulative API and WebSocket request counters in the selected time range.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -33,7 +33,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(last_over_time({__name__=~\"codex_(api|websocket)_request_total\"}[$__range]))",
+                        "expr": "(sum(last_over_time(codex_api_request_total[$__range])) or vector(0)) + (sum(last_over_time(codex_websocket_request_total[$__range])) or vector(0))",
                         "instant": true,
                         "range": false
                       }
@@ -68,7 +68,7 @@
               "fieldConfig": {
                 "defaults": {
                   "unit": "short",
-                  "noValue": "No data"
+                  "noValue": "0"
                 },
                 "overrides": []
               }
@@ -80,8 +80,8 @@
         "kind": "Panel",
         "spec": {
           "id": 10,
-          "title": "Auth mode",
-          "description": "Authentication mode recorded when a thread starts. Last cumulative value observed in the selected time range; this is not the increase during that range.",
+          "title": "P95 request latency",
+          "description": "95th percentile from the latest cumulative request-latency histogram snapshots in the selected time range.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -99,9 +99,8 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (auth_mode) (last_over_time(codex_thread_started_total[$__range])) \u003e 0",
+                        "expr": "histogram_quantile(0.95, sum by (le) (last_over_time(codex_websocket_request_duration_ms_milliseconds_bucket[$__range]))) or vector(0)",
                         "instant": true,
-                        "legendFormat": "{{auth_mode}}",
                         "range": false
                       }
                     },
@@ -116,36 +115,26 @@
           },
           "vizConfig": {
             "kind": "VizConfig",
-            "group": "piechart",
+            "group": "stat",
             "version": "",
             "spec": {
               "options": {
-                "pieType": "donut",
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                },
+                "graphMode": "area",
+                "colorMode": "none",
+                "justifyMode": "auto",
+                "textMode": "auto",
+                "wideLayout": true,
+                "showPercentChange": false,
                 "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "legend": {
-                  "values": [
-                    "value",
-                    "percent"
-                  ],
-                  "displayMode": "table",
-                  "placement": "right",
-                  "showLegend": true,
                   "calcs": []
                 },
+                "percentChangeColorMode": "standard",
                 "orientation": ""
               },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "short",
-                  "custom": {}
+                  "unit": "ms",
+                  "noValue": "0"
                 },
                 "overrides": []
               }
@@ -157,8 +146,8 @@
         "kind": "Panel",
         "spec": {
           "id": 11,
-          "title": "Terminal type",
-          "description": "Client type that started the thread, using the Codex OTel session_source attribute. Last cumulative value observed in the selected time range; this is not the increase during that range.",
+          "title": "Avg turn duration",
+          "description": "Average from the latest cumulative histogram snapshots in the selected time range. Displays 0 until Codex reports a measurement.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -176,7 +165,139 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (session_source) (last_over_time(codex_thread_started_total[$__range])) \u003e 0",
+                        "expr": "(sum(last_over_time(codex_turn_e2e_duration_ms_milliseconds_sum[$__range])) / clamp_min(sum(last_over_time(codex_turn_e2e_duration_ms_milliseconds_count[$__range])), 1)) or vector(0)",
+                        "instant": true,
+                        "range": false
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "graphMode": "area",
+                "colorMode": "none",
+                "justifyMode": "auto",
+                "textMode": "auto",
+                "wideLayout": true,
+                "showPercentChange": false,
+                "reduceOptions": {
+                  "calcs": []
+                },
+                "percentChangeColorMode": "standard",
+                "orientation": ""
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ms",
+                  "noValue": "0"
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-12": {
+        "kind": "Panel",
+        "spec": {
+          "id": 12,
+          "title": "Tool calls",
+          "description": "Tool calls reported by Codex. Displays 0 when no tool-call sample has been reported.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "prometheus"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum(last_over_time(codex_tool_call_total[$__range])) or vector(0)",
+                        "instant": true,
+                        "range": false
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "graphMode": "area",
+                "colorMode": "none",
+                "justifyMode": "auto",
+                "textMode": "auto",
+                "wideLayout": true,
+                "showPercentChange": false,
+                "reduceOptions": {
+                  "calcs": []
+                },
+                "percentChangeColorMode": "standard",
+                "orientation": ""
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "noValue": "0"
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-13": {
+        "kind": "Panel",
+        "spec": {
+          "id": 13,
+          "title": "Threads by session source",
+          "description": "Where a Codex session started, such as the desktop app or CLI.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "prometheus"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (session_source) (last_over_time(codex_thread_started_total[$__range])) or on() label_replace(vector(0), \"session_source\", \"No activity\", \"\", \"\")",
                         "instant": true,
                         "legendFormat": "{{session_source}}",
                         "range": false
@@ -230,12 +351,12 @@
           }
         }
       },
-      "panel-12": {
+      "panel-14": {
         "kind": "Panel",
         "spec": {
-          "id": 12,
-          "title": "Codex version",
-          "description": "Codex application version that started the thread. Last cumulative value observed in the selected time range; this is not the increase during that range.",
+          "id": 14,
+          "title": "Threads by authentication mode",
+          "description": "Authentication mode reported when a thread starts.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -253,7 +374,84 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (app_version) (last_over_time(codex_thread_started_total[$__range])) \u003e 0",
+                        "expr": "sum by (auth_mode) (last_over_time(codex_thread_started_total[$__range])) or on() label_replace(vector(0), \"auth_mode\", \"No activity\", \"\", \"\")",
+                        "instant": true,
+                        "legendFormat": "{{auth_mode}}",
+                        "range": false
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "piechart",
+            "version": "",
+            "spec": {
+              "options": {
+                "pieType": "donut",
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                },
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "legend": {
+                  "values": [
+                    "value",
+                    "percent"
+                  ],
+                  "displayMode": "table",
+                  "placement": "right",
+                  "showLegend": true,
+                  "calcs": []
+                },
+                "orientation": ""
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "custom": {}
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-15": {
+        "kind": "Panel",
+        "spec": {
+          "id": 15,
+          "title": "Threads by Codex version",
+          "description": "Version of the Codex client that emitted each thread-start sample.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "prometheus"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (app_version) (last_over_time(codex_thread_started_total[$__range])) or on() label_replace(vector(0), \"app_version\", \"No activity\", \"\", \"\")",
                         "instant": true,
                         "legendFormat": "{{app_version}}",
                         "range": false
@@ -307,12 +505,12 @@
           }
         }
       },
-      "panel-13": {
+      "panel-16": {
         "kind": "Panel",
         "spec": {
-          "id": 13,
+          "id": 16,
           "title": "Codex traces",
-          "description": "Traces for tasks in the selected time range. Select a row to inspect it in Tempo.",
+          "description": "Codex spans in the selected time range. This table fills when Codex has emitted traces; metric panels remain useful even when there are no spans.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -378,8 +576,8 @@
         "kind": "Panel",
         "spec": {
           "id": 2,
-          "title": "Total tokens",
-          "description": "Last cumulative value observed in the selected time range; this is not the increase during that range. Input and output tokens combined.",
+          "title": "Conversations",
+          "description": "Codex threads started, from the latest cumulative snapshot.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -397,7 +595,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(last_over_time(codex_turn_token_usage_sum{token_type=\"total\"}[$__range]))",
+                        "expr": "sum(last_over_time(codex_thread_started_total[$__range])) or vector(0)",
                         "instant": true,
                         "range": false
                       }
@@ -432,7 +630,7 @@
               "fieldConfig": {
                 "defaults": {
                   "unit": "short",
-                  "noValue": "No data"
+                  "noValue": "0"
                 },
                 "overrides": []
               }
@@ -444,8 +642,8 @@
         "kind": "Panel",
         "spec": {
           "id": 3,
-          "title": "Conversations",
-          "description": "Last cumulative value observed in the selected time range; this is not the increase during that range. Number of Codex threads started.",
+          "title": "Turns",
+          "description": "Conversation turns reported by Codex.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -463,7 +661,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(last_over_time(codex_thread_started_total[$__range]))",
+                        "expr": "sum(last_over_time(codex_conversation_turn_count_total[$__range])) or vector(0)",
                         "instant": true,
                         "range": false
                       }
@@ -498,7 +696,7 @@
               "fieldConfig": {
                 "defaults": {
                   "unit": "short",
-                  "noValue": "No data"
+                  "noValue": "0"
                 },
                 "overrides": []
               }
@@ -510,8 +708,8 @@
         "kind": "Panel",
         "spec": {
           "id": 4,
-          "title": "Active users",
-          "description": "Shows 0 or 1 depending on whether Codex was used locally. The OTel metrics do not identify multiple users.",
+          "title": "Tokens",
+          "description": "Total input and output tokens reported by Codex.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -529,7 +727,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "clamp_max(sum(last_over_time(codex_thread_started_total[$__range])), 1)",
+                        "expr": "sum(last_over_time(codex_turn_token_usage_sum{token_type=\"total\"}[$__range])) or vector(0)",
                         "instant": true,
                         "range": false
                       }
@@ -564,7 +762,7 @@
               "fieldConfig": {
                 "defaults": {
                   "unit": "short",
-                  "noValue": "No data"
+                  "noValue": "0"
                 },
                 "overrides": []
               }
@@ -576,8 +774,8 @@
         "kind": "Panel",
         "spec": {
           "id": 5,
-          "title": "Request rate by model",
-          "description": "Model requests per minute. Requires at least two consecutive metric reports.",
+          "title": "Cumulative requests by model",
+          "description": "Latest cumulative API and WebSocket request snapshots, grouped by the model label reported by Codex. This remains useful after a short session that reports only once; select a shorter time range to focus on recent model activity.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -595,7 +793,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (model) (rate({__name__=~\"codex_(api|websocket)_request_total\"}[$__rate_interval])) * 60",
+                        "expr": "sum by (model) (label_replace(last_over_time(codex_api_request_total[$__range]), \"request_transport\", \"API\", \"__name__\", \".*\") or label_replace(last_over_time(codex_websocket_request_total[$__range]), \"request_transport\", \"WebSocket\", \"__name__\", \".*\")) or on() label_replace(vector(0), \"model\", \"No activity\", \"\", \"\")",
                         "instant": false,
                         "legendFormat": "{{model}}",
                         "range": true
@@ -646,7 +844,7 @@
         "spec": {
           "id": 6,
           "title": "Requests by model",
-          "description": "Last cumulative value observed in the selected time range; this is not the increase during that range.",
+          "description": "Latest cumulative API and WebSocket requests grouped by the model label reported by Codex.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -664,7 +862,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (model) (last_over_time({__name__=~\"codex_(api|websocket)_request_total\"}[$__range])) \u003e 0",
+                        "expr": "sum by (model) (label_replace(last_over_time(codex_api_request_total[$__range]), \"request_transport\", \"API\", \"__name__\", \".*\") or label_replace(last_over_time(codex_websocket_request_total[$__range]), \"request_transport\", \"WebSocket\", \"__name__\", \".*\")) or on() label_replace(vector(0), \"model\", \"No activity\", \"\", \"\")",
                         "instant": true,
                         "legendFormat": "{{model}}",
                         "range": false
@@ -722,8 +920,8 @@
         "kind": "Panel",
         "spec": {
           "id": 7,
-          "title": "API request latency",
-          "description": "Average and estimated 95th percentile latency across HTTP and WebSocket requests. Requires consecutive reports.",
+          "title": "Token usage by model and type",
+          "description": "Latest cumulative token counts reported by Codex. The selected time range controls which model snapshots are included.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -741,35 +939,13 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(rate({__name__=~\"codex_(api|websocket)_request_duration_ms_milliseconds_sum\"}[$__rate_interval])) / sum(rate({__name__=~\"codex_(api|websocket)_request_duration_ms_milliseconds_count\"}[$__rate_interval]))",
+                        "expr": "sum by (model, token_type) (last_over_time(codex_turn_token_usage_sum[$__range])) or on() label_replace(vector(0), \"token_type\", \"No activity\", \"\", \"\")",
                         "instant": false,
-                        "legendFormat": "Avg",
+                        "legendFormat": "{{model}} · {{token_type}}",
                         "range": true
                       }
                     },
                     "refId": "A",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "prometheus"
-                      },
-                      "spec": {
-                        "editorMode": "code",
-                        "expr": "histogram_quantile(0.95, sum by (le) (rate({__name__=~\"codex_(api|websocket)_request_duration_ms_milliseconds_bucket\"}[$__rate_interval])))",
-                        "instant": false,
-                        "legendFormat": "P95",
-                        "range": true
-                      }
-                    },
-                    "refId": "B",
                     "hidden": false
                   }
                 }
@@ -799,7 +975,7 @@
               },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "ms",
+                  "unit": "short",
                   "min": 0,
                   "custom": {}
                 },
@@ -814,7 +990,7 @@
         "spec": {
           "id": 8,
           "title": "Requests by client",
-          "description": "This panel replaces the team member breakdown in the hosted dashboard. It shows requests by the originating Codex client. Last cumulative value observed in the selected time range; this is not the increase during that range.",
+          "description": "API and WebSocket requests grouped by the Codex client that emitted the samples. This is a local-client breakdown, not a team-member breakdown.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -832,7 +1008,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (originator) (last_over_time({__name__=~\"codex_(api|websocket)_request_total\"}[$__range])) \u003e 0",
+                        "expr": "sum by (originator) (label_replace(last_over_time(codex_api_request_total[$__range]), \"request_transport\", \"API\", \"__name__\", \".*\") or label_replace(last_over_time(codex_websocket_request_total[$__range]), \"request_transport\", \"WebSocket\", \"__name__\", \".*\")) or on() label_replace(vector(0), \"originator\", \"No activity\", \"\", \"\")",
                         "instant": true,
                         "legendFormat": "{{originator}}",
                         "range": false
@@ -890,8 +1066,8 @@
         "kind": "Panel",
         "spec": {
           "id": 9,
-          "title": "Avg response duration",
-          "description": "Average end-to-end turn duration, calculated as the cumulative histogram sum divided by count.",
+          "title": "Avg request latency",
+          "description": "Average from the latest cumulative histogram snapshots in the selected time range. Displays 0 until Codex reports a measurement.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -909,7 +1085,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(last_over_time(codex_turn_e2e_duration_ms_milliseconds_sum[$__range])) / sum(last_over_time(codex_turn_e2e_duration_ms_milliseconds_count[$__range]))",
+                        "expr": "(sum(last_over_time(codex_websocket_request_duration_ms_milliseconds_sum[$__range])) / clamp_min(sum(last_over_time(codex_websocket_request_duration_ms_milliseconds_count[$__range])), 1)) or vector(0)",
                         "instant": true,
                         "range": false
                       }
@@ -944,7 +1120,7 @@
               "fieldConfig": {
                 "defaults": {
                   "unit": "ms",
-                  "noValue": "No data"
+                  "noValue": "0"
                 },
                 "overrides": []
               }
@@ -1067,7 +1243,7 @@
               "x": 0,
               "y": 20,
               "width": 6,
-              "height": 5,
+              "height": 4,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-9"
@@ -1080,7 +1256,7 @@
               "x": 6,
               "y": 20,
               "width": 6,
-              "height": 5,
+              "height": 4,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-10"
@@ -1093,7 +1269,7 @@
               "x": 12,
               "y": 20,
               "width": 6,
-              "height": 5,
+              "height": 4,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-11"
@@ -1106,7 +1282,7 @@
               "x": 18,
               "y": 20,
               "width": 6,
-              "height": 5,
+              "height": 4,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-12"
@@ -1117,12 +1293,51 @@
             "kind": "GridLayoutItem",
             "spec": {
               "x": 0,
-              "y": 25,
+              "y": 24,
+              "width": 8,
+              "height": 6,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-13"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 8,
+              "y": 24,
+              "width": 8,
+              "height": 6,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-14"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 16,
+              "y": 24,
+              "width": 8,
+              "height": 6,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-15"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 30,
               "width": 24,
               "height": 9,
               "element": {
                 "kind": "ElementReference",
-                "name": "panel-13"
+                "name": "panel-16"
               }
             }
           }
@@ -1138,7 +1353,7 @@
     ],
     "timeSettings": {
       "timezone": "browser",
-      "from": "now-24h",
+      "from": "now-1h",
       "to": "now",
       "autoRefresh": "30s",
       "autoRefreshIntervals": [
