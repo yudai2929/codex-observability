@@ -1,6 +1,6 @@
 services:
   lgtm:
-    image: grafana/otel-lgtm:0.33.1
+    image: grafana/otel-lgtm:0.38.1
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       PROMETHEUS_EXTRA_ARGS: "--enable-feature=otlp-deltatocumulative"
